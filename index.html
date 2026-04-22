@@ -6,7 +6,7 @@
 <title>金字塔纸牌</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: #0d3d1f; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a2e15; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 #game-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
 </style>
 </head>
@@ -16,16 +16,17 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0d3d1f; t
 <script>
 // ============================================================
 // 金字塔纸牌 (Pyramid Solitaire) - Phaser 3 H5 Game
+// Portrait Mode Redesign with Animations
 // ============================================================
 
-const CARD_W = 70;
-const CARD_H = 100;
-const CARD_R = 8;
+const CARD_W = 58;
+const CARD_H = 82;
+const CARD_R = 6;
 const SUITS = ['spade', 'heart', 'diamond', 'club'];
 const SUIT_SYM = { spade: '\u2660', heart: '\u2665', diamond: '\u2666', club: '\u2663' };
 const SUIT_CLR = { spade: '#1a1a1a', heart: '#cc1111', diamond: '#cc1111', club: '#1a1a1a' };
 const RANK_NAME = ['', 'A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-const GW = 800, GH = 600;
+const GW = 450, GH = 800;
 
 // ============================================================
 // Data helpers
@@ -49,31 +50,38 @@ function genCardFace(scene, key, card) {
     const sym = SUIT_SYM[card.suit];
     const rn = RANK_NAME[card.rank];
 
+    // Shadow
+    const shadow = scene.add.graphics();
+    shadow.fillStyle(0x000000, 0.15);
+    shadow.fillRoundedRect(2, 2, CARD_W, CARD_H, CARD_R);
+    rt.draw(shadow, 0, 0);
+    shadow.destroy();
+
     // White card body
     const bg = scene.add.graphics();
     bg.fillStyle(0xffffff, 1);
     bg.fillRoundedRect(0, 0, CARD_W, CARD_H, CARD_R);
-    bg.lineStyle(1, 0xbbbbbb, 0.7);
+    bg.lineStyle(1, 0xcccccc, 0.8);
     bg.strokeRoundedRect(0, 0, CARD_W, CARD_H, CARD_R);
     rt.draw(bg, 0, 0);
     bg.destroy();
 
     // Top-left rank
-    const t1 = scene.add.text(5, 2, rn, { fontSize: '15px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: clr });
-    rt.draw(t1, 5, 2); t1.destroy();
+    const t1 = scene.add.text(4, 1, rn, { fontSize: '12px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: clr });
+    rt.draw(t1, 4, 1); t1.destroy();
     // Top-left suit
-    const t2 = scene.add.text(5, 16, sym, { fontSize: '13px', fontFamily: 'Arial,sans-serif', color: clr });
-    rt.draw(t2, 5, 16); t2.destroy();
+    const t2 = scene.add.text(4, 12, sym, { fontSize: '10px', fontFamily: 'Arial,sans-serif', color: clr });
+    rt.draw(t2, 4, 12); t2.destroy();
 
     // Center large suit
-    const t3 = scene.add.text(CARD_W / 2, CARD_H / 2, sym, { fontSize: '34px', fontFamily: 'Arial,sans-serif', color: clr }).setOrigin(0.5);
+    const t3 = scene.add.text(CARD_W / 2, CARD_H / 2, sym, { fontSize: '28px', fontFamily: 'Arial,sans-serif', color: clr }).setOrigin(0.5);
     rt.draw(t3, 0, 0); t3.destroy();
 
     // Bottom-right (rotated)
-    const t4 = scene.add.text(0, 0, rn, { fontSize: '15px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: clr }).setOrigin(0.5).setAngle(180);
-    rt.draw(t4, CARD_W - 5, CARD_H - 10); t4.destroy();
-    const t5 = scene.add.text(0, 0, sym, { fontSize: '13px', fontFamily: 'Arial,sans-serif', color: clr }).setOrigin(0.5).setAngle(180);
-    rt.draw(t5, CARD_W - 5, CARD_H - 24); t5.destroy();
+    const t4 = scene.add.text(0, 0, rn, { fontSize: '12px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: clr }).setOrigin(0.5).setAngle(180);
+    rt.draw(t4, CARD_W - 4, CARD_H - 8); t4.destroy();
+    const t5 = scene.add.text(0, 0, sym, { fontSize: '10px', fontFamily: 'Arial,sans-serif', color: clr }).setOrigin(0.5).setAngle(180);
+    rt.draw(t5, CARD_W - 4, CARD_H - 20); t5.destroy();
 
     rt.saveTexture(key);
     rt.destroy();
@@ -81,6 +89,14 @@ function genCardFace(scene, key, card) {
 
 function genCardBack(scene, key) {
     const rt = scene.add.renderTexture(0, 0, CARD_W, CARD_H);
+
+    // Shadow
+    const shadow = scene.add.graphics();
+    shadow.fillStyle(0x000000, 0.15);
+    shadow.fillRoundedRect(2, 2, CARD_W, CARD_H, CARD_R);
+    rt.draw(shadow, 0, 0);
+    shadow.destroy();
+
     const bg = scene.add.graphics();
     bg.fillStyle(0x1a4488, 1);
     bg.fillRoundedRect(0, 0, CARD_W, CARD_H, CARD_R);
@@ -90,7 +106,7 @@ function genCardBack(scene, key) {
 
     const inner = scene.add.graphics();
     inner.lineStyle(1, 0x3366aa, 0.7);
-    inner.strokeRoundedRect(5, 5, CARD_W - 10, CARD_H - 10, CARD_R - 2);
+    inner.strokeRoundedRect(4, 4, CARD_W - 8, CARD_H - 8, CARD_R - 2);
     rt.draw(inner, 0, 0); inner.destroy();
 
     // Diamond pattern
@@ -99,25 +115,79 @@ function genCardBack(scene, key) {
     const cx = CARD_W / 2, cy = CARD_H / 2;
     for (let dy = -4; dy <= 4; dy++) {
         for (let dx = -2; dx <= 2; dx++) {
-            const px = cx + dx * 14, py = cy + dy * 10;
-            if (px > 9 && px < CARD_W - 9 && py > 9 && py < CARD_H - 9) {
-                pat.fillTriangle(px, py - 8, px + 8, py, px, py + 8, px - 8, py);
+            const px = cx + dx * 12, py = cy + dy * 8;
+            if (px > 7 && px < CARD_W - 7 && py > 7 && py < CARD_H - 7) {
+                pat.fillTriangle(px, py - 6, px + 6, py, px, py + 6, px - 6, py);
             }
         }
     }
     rt.draw(pat, 0, 0); pat.destroy();
+
+    // Shimmer highlight (static diagonal line for base)
+    const shimmer = scene.add.graphics();
+    shimmer.fillStyle(0xffffff, 0.08);
+    shimmer.fillRect(CARD_W * 0.3, 0, 3, CARD_H);
+    rt.draw(shimmer, 0, 0); shimmer.destroy();
 
     rt.saveTexture(key);
     rt.destroy();
 }
 
 function genGlowTexture(scene, key, color, alpha) {
-    const rt = scene.add.renderTexture(0, 0, CARD_W + 10, CARD_H + 10);
+    const rt = scene.add.renderTexture(0, 0, CARD_W + 12, CARD_H + 12);
     const g = scene.add.graphics();
     g.lineStyle(3, color, 1);
-    g.strokeRoundedRect(3, 3, CARD_W + 4, CARD_H + 4, CARD_R + 2);
+    g.strokeRoundedRect(4, 4, CARD_W + 4, CARD_H + 4, CARD_R + 2);
     g.fillStyle(color, alpha);
-    g.fillRoundedRect(3, 3, CARD_W + 4, CARD_H + 4, CARD_R + 2);
+    g.fillRoundedRect(4, 4, CARD_W + 4, CARD_H + 4, CARD_R + 2);
+    rt.draw(g, 0, 0); g.destroy();
+    rt.saveTexture(key);
+    rt.destroy();
+}
+
+function genCrownTexture(scene, key) {
+    const rt = scene.add.renderTexture(0, 0, 40, 36);
+    const g = scene.add.graphics();
+    g.fillStyle(0xffd700, 1);
+    // Crown base
+    g.fillRect(4, 22, 32, 10);
+    // Crown points
+    g.fillTriangle(4, 22, 4, 8, 12, 22);
+    g.fillTriangle(12, 22, 14, 4, 20, 22);
+    g.fillTriangle(20, 22, 26, 4, 28, 22);
+    g.fillTriangle(28, 22, 36, 8, 36, 22);
+    // Jewels
+    g.fillStyle(0xff2222, 1);
+    g.fillCircle(14, 18, 2.5);
+    g.fillCircle(26, 18, 2.5);
+    g.fillStyle(0x2266ff, 1);
+    g.fillCircle(20, 16, 2.5);
+    rt.draw(g, 0, 0); g.destroy();
+    rt.saveTexture(key);
+    rt.destroy();
+}
+
+function genSparkleTexture(scene, key) {
+    const size = 16;
+    const rt = scene.add.renderTexture(0, 0, size, size);
+    const g = scene.add.graphics();
+    g.fillStyle(0xffffff, 1);
+    // 4-point star
+    const c = size / 2;
+    g.fillTriangle(c, 0, c - 2, c - 2, c + 2, c - 2);
+    g.fillTriangle(c, size, c - 2, c + 2, c + 2, c + 2);
+    g.fillTriangle(0, c, c - 2, c - 2, c - 2, c + 2);
+    g.fillTriangle(size, c, c + 2, c - 2, c + 2, c + 2);
+    rt.draw(g, 0, 0); g.destroy();
+    rt.saveTexture(key);
+    rt.destroy();
+}
+
+function genParticleTexture(scene, key) {
+    const rt = scene.add.renderTexture(0, 0, 6, 6);
+    const g = scene.add.graphics();
+    g.fillStyle(0xffffff, 0.4);
+    g.fillCircle(3, 3, 3);
     rt.draw(g, 0, 0); g.destroy();
     rt.saveTexture(key);
     rt.destroy();
@@ -132,29 +202,27 @@ class PyramidScene extends Phaser.Scene {
     create() {
         // State
         this.score = 0;
+        this.displayScore = 0;
         this.combo = 0;
         this.comboTimer = null;
         this.undoStack = [];
-        this.selected = null;       // card data
-        this.selectedSpr = null;    // sprite
-        this.selGlow = null;        // highlight image
+        this.selected = null;
+        this.selectedSpr = null;
+        this.selGlow = null;
         this.hintGlows = [];
         this.animating = false;
         this.gameOver = false;
         this.elapsed = 0;
-        this.pyramid = [];          // [row][col]
-        this.sprites = new Map();   // id -> sprite
+        this.pyramid = [];
+        this.sprites = new Map();
         this.drawPile = [];
         this.wastePile = [];
-        this.uiElems = {};          // persistent UI references
+        this.uiElems = {};
+        this.bgParticles = [];
+        this.shimmerTimer = 0;
 
-        // Background
-        this.cameras.main.setBackgroundColor('#1a6b3c');
-        const felt = this.add.graphics().setDepth(0);
-        felt.fillStyle(0x1a6b3c, 0.3);
-        felt.fillRect(0, 0, GW, GH);
-        felt.lineStyle(2, 0x145530, 0.5);
-        felt.strokeRect(8, 8, GW - 16, GH - 16);
+        // Gradient background
+        this.drawGradientBg();
 
         // Generate all textures
         const deck = makeDeck();
@@ -162,6 +230,12 @@ class PyramidScene extends Phaser.Scene {
         genCardBack(this, 'back');
         genGlowTexture(this, 'glow_sel', 0xffd700, 0.18);
         genGlowTexture(this, 'glow_hint', 0x00ff88, 0.18);
+        genCrownTexture(this, 'crown');
+        genSparkleTexture(this, 'sparkle');
+        genParticleTexture(this, 'particle');
+
+        // Background floating particles
+        this.initBgParticles();
 
         // Static UI
         this.buildStaticUI();
@@ -170,50 +244,117 @@ class PyramidScene extends Phaser.Scene {
         this.newGame();
     }
 
-    buildStaticUI() {
-        // Top bar
-        const tb = this.add.graphics().setDepth(80);
-        tb.fillStyle(0x0d3d1f, 0.9);
-        tb.fillRect(0, 0, GW, 42);
-        tb.lineStyle(1, 0x2a8a4a, 0.6);
-        tb.lineBetween(0, 42, GW, 42);
+    drawGradientBg() {
+        const bg = this.add.graphics().setDepth(-10);
+        // Dark green gradient from top to bottom
+        const steps = 40;
+        for (let i = 0; i < steps; i++) {
+            const t = i / steps;
+            const r = Math.floor(Phaser.Math.Linear(0x0d, 0x08, t));
+            const g = Math.floor(Phaser.Math.Linear(0x4d, 0x2e, t));
+            const b = Math.floor(Phaser.Math.Linear(0x28, 0x15, t));
+            const color = (r << 16) | (g << 8) | b;
+            bg.fillStyle(color, 1);
+            bg.fillRect(0, Math.floor(GH * i / steps), GW, Math.ceil(GH / steps) + 1);
+        }
+        // Subtle felt texture overlay
+        bg.fillStyle(0x1a6b3c, 0.08);
+        bg.fillRect(0, 0, GW, GH);
+        // Border
+        bg.lineStyle(2, 0x2a8a4a, 0.3);
+        bg.strokeRect(4, 4, GW - 8, GH - 8);
+    }
 
-        this.uiElems.scoreTxt = this.add.text(15, 11, '', { fontSize: '17px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: '#ffd700' }).setDepth(81);
-        this.uiElems.timeTxt = this.add.text(180, 11, '', { fontSize: '17px', fontFamily: 'Arial,sans-serif', color: '#ffffff' }).setDepth(81);
-        this.uiElems.comboTxt = this.add.text(370, 11, '', { fontSize: '17px', fontFamily: 'Arial,sans-serif', color: '#ff8844' }).setDepth(81);
-        this.uiElems.remainTxt = this.add.text(540, 11, '', { fontSize: '17px', fontFamily: 'Arial,sans-serif', color: '#88ddff' }).setDepth(81);
+    initBgParticles() {
+        for (let i = 0; i < 20; i++) {
+            const p = this.add.image(
+                Phaser.Math.Between(10, GW - 10),
+                Phaser.Math.Between(10, GH - 10),
+                'particle'
+            ).setDepth(-5).setAlpha(Phaser.Math.FloatBetween(0.1, 0.3));
+            p._vx = Phaser.Math.FloatBetween(-0.15, 0.15);
+            p._vy = Phaser.Math.FloatBetween(-0.3, -0.08);
+            p._baseAlpha = p.alpha;
+            p._phase = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            this.bgParticles.push(p);
+        }
+    }
+
+    updateBgParticles(time) {
+        for (const p of this.bgParticles) {
+            p.x += p._vx;
+            p.y += p._vy;
+            p.alpha = p._baseAlpha * (0.5 + 0.5 * Math.sin(time * 0.001 + p._phase));
+            if (p.y < -10) { p.y = GH + 10; p.x = Phaser.Math.Between(10, GW - 10); }
+            if (p.x < -10) p.x = GW + 10;
+            if (p.x > GW + 10) p.x = -10;
+        }
+    }
+
+    buildStaticUI() {
+        // Top bar background
+        const tb = this.add.graphics().setDepth(80);
+        tb.fillStyle(0x0a2e15, 0.92);
+        tb.fillRect(0, 0, GW, 44);
+        tb.lineStyle(1, 0x2a8a4a, 0.5);
+        tb.lineBetween(0, 44, GW, 44);
+
+        // Top bar gradient overlay
+        const tbg = this.add.graphics().setDepth(80);
+        tbg.fillGradientStyle(0x1a5c30, 0x1a5c30, 0x0a2e15, 0x0a2e15, 0.3, 0.3, 0.3, 0.3);
+        tbg.fillRect(0, 0, GW, 44);
+
+        const uiFont = { fontSize: '14px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold' };
+        this.uiElems.scoreTxt = this.add.text(10, 14, '', { ...uiFont, color: '#ffd700' }).setDepth(81);
+        this.uiElems.timeTxt = this.add.text(115, 14, '', { ...uiFont, color: '#ffffff' }).setDepth(81);
+        this.uiElems.comboTxt = this.add.text(225, 14, '', { ...uiFont, color: '#ff8844' }).setDepth(81);
+        this.uiElems.remainTxt = this.add.text(340, 14, '', { ...uiFont, color: '#88ddff' }).setDepth(81);
 
         // Bottom bar
         const bb = this.add.graphics().setDepth(80);
-        bb.fillStyle(0x0d3d1f, 0.85);
-        bb.fillRect(0, GH - 50, GW, 50);
+        bb.fillStyle(0x0a2e15, 0.92);
+        bb.fillRect(0, GH - 56, GW, 56);
         bb.lineStyle(1, 0x2a8a4a, 0.5);
-        bb.lineBetween(0, GH - 50, GW, GH - 50);
+        bb.lineBetween(0, GH - 56, GW, GH - 56);
 
-        this.makeBtn(180, GH - 25, '\u65b0\u6e38\u620f', 0x228844, this.onNewGame);
-        this.makeBtn(360, GH - 25, '\u64a4\u9500', 0x886622, this.onUndo);
-        this.makeBtn(540, GH - 25, '\u63d0\u793a', 0x226688, this.onHint);
+        const bbg = this.add.graphics().setDepth(80);
+        bbg.fillGradientStyle(0x0a2e15, 0x0a2e15, 0x1a5c30, 0x1a5c30, 0.3, 0.3, 0.3, 0.3);
+        bbg.fillRect(0, GH - 56, GW, 56);
+
+        this.makeBtn(GW / 2 - 130, GH - 28, '\u65b0\u6e38\u620f', 0x228844, this.onNewGame);
+        this.makeBtn(GW / 2, GH - 28, '\u64a4\u9500', 0x886622, this.onUndo);
+        this.makeBtn(GW / 2 + 130, GH - 28, '\u63d0\u793a', 0x226688, this.onHint);
     }
 
     makeBtn(x, y, label, color, cb) {
-        const w = 100, h = 34;
-        const bg = this.add.graphics().setDepth(81);
+        const w = 110, h = 36;
+        const container = this.add.container(x, y).setDepth(81);
+
+        const bg = this.add.graphics();
         const drawBg = (c) => {
             bg.clear();
             bg.fillStyle(c, 1);
-            bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+            bg.fillRoundedRect(-w / 2, -h / 2, w, h, 6);
             const b = Phaser.Display.Color.IntegerToColor(c).brighten(30).color;
             bg.lineStyle(1.5, b, 0.8);
-            bg.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+            bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 6);
         };
         drawBg(color);
+        container.add(bg);
 
-        this.add.text(x, y, label, { fontSize: '16px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5).setDepth(82);
+        const txt = this.add.text(0, 0, label, { fontSize: '15px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5);
+        container.add(txt);
 
-        const hit = this.add.rectangle(x, y, w, h, 0x000000, 0).setInteractive({ useHandCursor: true }).setDepth(83);
+        const hit = this.add.rectangle(0, 0, w, h, 0x000000, 0).setInteractive({ useHandCursor: true });
+        container.add(hit);
+
         hit.on('pointerover', () => drawBg(Phaser.Display.Color.IntegerToColor(color).brighten(20).color));
-        hit.on('pointerout', () => drawBg(color));
-        hit.on('pointerdown', cb, this);
+        hit.on('pointerout', () => { drawBg(color); this.tweens.add({ targets: container, scaleX: 1, scaleY: 1, duration: 100 }); });
+        hit.on('pointerdown', () => {
+            // Button press animation
+            this.tweens.add({ targets: container, scaleX: 0.9, scaleY: 0.9, duration: 60, yoyo: true });
+            cb.call(this);
+        });
     }
 
     // ============================================================
@@ -221,6 +362,7 @@ class PyramidScene extends Phaser.Scene {
     // ============================================================
     newGame() {
         this.score = 0;
+        this.displayScore = 0;
         this.combo = 0;
         this.elapsed = 0;
         this.undoStack = [];
@@ -266,6 +408,68 @@ class PyramidScene extends Phaser.Scene {
         this.renderPyramid();
         this.renderPiles();
         this.refreshUI();
+
+        // Deal animation
+        this.animateDeal();
+    }
+
+    animateDeal() {
+        this.animating = true;
+        const cx = GW / 2;
+        const topY = 52;
+        const colGap = 62;
+        const rowStep = 34;
+
+        let delay = 0;
+        for (let row = 0; row < 7; row++) {
+            for (let col = 0; col <= row; col++) {
+                const card = this.pyramid[row][col];
+                if (card.removed) continue;
+                const spr = this.sprites.get(card.id);
+                if (!spr) continue;
+
+                const targetX = spr.x;
+                const targetY = spr.y;
+                const targetAlpha = spr.alpha;
+
+                // Start from off-screen top with random offset
+                spr.x = cx + Phaser.Math.Between(-50, 50);
+                spr.y = -CARD_H - Phaser.Math.Between(0, 60);
+                spr.alpha = 0;
+                spr.setScale(0.5);
+
+                this.tweens.add({
+                    targets: spr,
+                    x: targetX,
+                    y: targetY,
+                    alpha: targetAlpha,
+                    scaleX: 1,
+                    scaleY: 1,
+                    duration: 350,
+                    delay: delay,
+                    ease: 'Back.Out',
+                });
+                delay += 40;
+            }
+        }
+
+        // Also animate draw pile
+        if (this.uiElems.dpSpr) {
+            const dpSpr = this.uiElems.dpSpr;
+            const tY = dpSpr.y;
+            dpSpr.y = -CARD_H;
+            dpSpr.alpha = 0;
+            this.tweens.add({
+                targets: dpSpr,
+                y: tY,
+                alpha: 1,
+                duration: 350,
+                delay: delay,
+                ease: 'Back.Out',
+            });
+        }
+
+        this.time.delayedCall(delay + 400, () => { this.animating = false; });
     }
 
     // ============================================================
@@ -273,12 +477,9 @@ class PyramidScene extends Phaser.Scene {
     // ============================================================
     renderPyramid() {
         const cx = GW / 2;
-        const topY = 48;
-        const colGap = 76;
-        // Row 6 bottom must be < 400 (leave room for piles at y=460)
-        // 48 + 6*step + 100 < 400 => step < 42
-        // But cards need to overlap to show the pyramid. Use step=42.
-        const rowStep = 42;
+        const topY = 52;
+        const colGap = 62;
+        const rowStep = 34;
 
         for (let row = 0; row < 7; row++) {
             for (let col = 0; col <= row; col++) {
@@ -292,8 +493,8 @@ class PyramidScene extends Phaser.Scene {
     }
 
     renderPiles() {
-        const dpX = 220, dpY = 460;
-        const wpX = 380, wpY = 460;
+        const dpX = GW / 2 - 55, dpY = 560;
+        const wpX = GW / 2 + 55, wpY = 560;
 
         // Draw pile
         if (this.uiElems.dpSpr) { this.uiElems.dpSpr.destroy(); this.uiElems.dpSpr = null; }
@@ -302,6 +503,15 @@ class PyramidScene extends Phaser.Scene {
         if (this.drawPile.length > 0) {
             this.uiElems.dpSpr = this.add.image(dpX, dpY, 'back').setInteractive({ useHandCursor: true }).setDepth(20);
             this.uiElems.dpSpr.on('pointerdown', this.onDrawClick, this);
+            // Hover effect for draw pile
+            this.uiElems.dpSpr.on('pointerover', () => {
+                if (!this.animating && !this.gameOver) {
+                    this.tweens.add({ targets: this.uiElems.dpSpr, scaleX: 1.05, scaleY: 1.05, duration: 100 });
+                }
+            });
+            this.uiElems.dpSpr.on('pointerout', () => {
+                this.tweens.add({ targets: this.uiElems.dpSpr, scaleX: 1, scaleY: 1, duration: 100 });
+            });
         } else {
             const g = this.add.graphics().setDepth(20);
             g.lineStyle(2, 0x2a8a4a, 0.5);
@@ -310,9 +520,9 @@ class PyramidScene extends Phaser.Scene {
         }
 
         if (this.uiElems.dpLabel) this.uiElems.dpLabel.destroy();
-        this.uiElems.dpLabel = this.add.text(dpX, dpY + CARD_H / 2 + 12,
-            '\u53d1\u724c\u5806: ' + this.drawPile.length, {
-            fontSize: '13px', fontFamily: 'Arial,sans-serif', color: '#aaddbb'
+        this.uiElems.dpLabel = this.add.text(dpX, dpY + CARD_H / 2 + 10,
+            '\u53d1\u724c: ' + this.drawPile.length, {
+            fontSize: '12px', fontFamily: 'Arial,sans-serif', color: '#aaddbb'
         }).setOrigin(0.5).setDepth(21);
 
         // Waste pile
@@ -331,9 +541,9 @@ class PyramidScene extends Phaser.Scene {
         }
 
         if (this.uiElems.wpLabel) this.uiElems.wpLabel.destroy();
-        this.uiElems.wpLabel = this.add.text(wpX, wpY + CARD_H / 2 + 12,
-            '\u5e9f\u724c\u5806', {
-            fontSize: '13px', fontFamily: 'Arial,sans-serif', color: '#aaddbb'
+        this.uiElems.wpLabel = this.add.text(wpX, wpY + CARD_H / 2 + 10,
+            '\u5e9f\u724c', {
+            fontSize: '12px', fontFamily: 'Arial,sans-serif', color: '#aaddbb'
         }).setOrigin(0.5).setDepth(21);
     }
 
@@ -348,6 +558,21 @@ class PyramidScene extends Phaser.Scene {
         spr.isPyramid = isPyramid;
         spr.setDepth(isPyramid && card.row >= 0 ? card.row + 1 : 20);
         spr.on('pointerdown', () => this.onCardClick(spr));
+
+        // Hover effect for clickable face-up cards
+        spr.on('pointerover', () => {
+            if (!this.animating && !this.gameOver && card.faceUp) {
+                if (card.row < 0 || this.isFree(card)) {
+                    this.tweens.add({ targets: spr, scaleX: 1.05, scaleY: 1.05, duration: 100 });
+                }
+            }
+        });
+        spr.on('pointerout', () => {
+            if (spr && spr.active) {
+                this.tweens.add({ targets: spr, scaleX: 1, scaleY: 1, duration: 100 });
+            }
+        });
+
         this.sprites.set(card.id, spr);
         return spr;
     }
@@ -357,7 +582,7 @@ class PyramidScene extends Phaser.Scene {
     // ============================================================
     isFree(card) {
         if (!card.faceUp || card.removed) return false;
-        if (card.row < 0) return true; // waste pile
+        if (card.row < 0) return true;
         const nr = card.row + 1;
         if (nr >= 7) return true;
         return this.pyramid[nr][card.col].removed && this.pyramid[nr][card.col + 1].removed;
@@ -376,12 +601,10 @@ class PyramidScene extends Phaser.Scene {
             this.removeKing(card);
             return;
         }
-        // If K is selected and clicked again, deselect
         if (card.rank === 13 && this.selected && this.selected.id === card.id) {
             this.deselect();
             return;
         }
-        // If K is second click and sum=13 with selected (shouldn't happen since K=13, need another 0), just treat as new selection
         if (card.rank === 13 && this.selected) {
             this.deselect();
             this.selectCard(card, spr);
@@ -408,12 +631,47 @@ class PyramidScene extends Phaser.Scene {
         this.selectedSpr = spr;
         if (this.selGlow) this.selGlow.destroy();
         this.selGlow = this.add.image(spr.x, spr.y, 'glow_sel').setDepth(spr.depth + 0.5);
+        // Breathing glow pulse
+        this.tweens.add({
+            targets: this.selGlow,
+            alpha: { from: 0.6, to: 1 },
+            scaleX: { from: 1, to: 1.03 },
+            scaleY: { from: 1, to: 1.03 },
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
     }
 
     deselect() {
         this.selected = null;
         this.selectedSpr = null;
         if (this.selGlow) { this.selGlow.destroy(); this.selGlow = null; }
+    }
+
+    // ============================================================
+    // Sparkle/Burst particle effect
+    // ============================================================
+    spawnSparkles(x, y, color, count) {
+        const colors = [0xffd700, 0xffaa00, 0xffffff, color || 0xffd700];
+        for (let i = 0; i < count; i++) {
+            const p = this.add.image(x, y, 'sparkle').setDepth(60).setTint(colors[i % colors.length]);
+            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const dist = Phaser.Math.Between(20, 60);
+            this.tweens.add({
+                targets: p,
+                x: x + Math.cos(angle) * dist,
+                y: y + Math.sin(angle) * dist,
+                alpha: 0,
+                scaleX: 0,
+                scaleY: 0,
+                angle: Phaser.Math.Between(0, 360),
+                duration: Phaser.Math.Between(400, 700),
+                ease: 'Power2',
+                onComplete: () => p.destroy()
+            });
+        }
     }
 
     // ============================================================
@@ -430,7 +688,14 @@ class PyramidScene extends Phaser.Scene {
         const bonus = Math.min(this.combo - 1, 10) * 50;
         const pts = 100 + bonus;
         this.score += pts;
-        this.floatText(s1 ? s1.x : 400, s1 ? s1.y - 30 : 300, '+' + pts, '#ffd700');
+
+        // Sparkle effect at midpoint
+        const mx = ((s1 ? s1.x : 225) + (s2 ? s2.x : 225)) / 2;
+        const my = ((s1 ? s1.y : 400) + (s2 ? s2.y : 400)) / 2;
+        this.spawnSparkles(mx, my, 0xffd700, 12);
+
+        this.floatText(s1 ? s1.x : 225, s1 ? s1.y - 30 : 300, '+' + pts, '#ffd700');
+        this.pulseCombo();
         this.resetComboTimer();
 
         c1.removed = true;
@@ -469,7 +734,27 @@ class PyramidScene extends Phaser.Scene {
         const bonus = Math.min(this.combo - 1, 10) * 50;
         const pts = 150 + bonus;
         this.score += pts;
-        this.floatText(spr ? spr.x : 400, spr ? spr.y - 30 : 300, '+' + pts, '#ffd700');
+
+        // Sparkle + crown float-up
+        const cx = spr ? spr.x : 225;
+        const cy = spr ? spr.y : 400;
+        this.spawnSparkles(cx, cy, 0xffd700, 10);
+
+        // Golden crown floats up
+        const crown = this.add.image(cx, cy, 'crown').setDepth(70).setScale(0.5);
+        this.tweens.add({
+            targets: crown,
+            y: cy - 80,
+            alpha: 0,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 900,
+            ease: 'Power2',
+            onComplete: () => crown.destroy()
+        });
+
+        this.floatText(cx, cy - 30, '+' + pts, '#ffd700');
+        this.pulseCombo();
         this.resetComboTimer();
 
         card.removed = true;
@@ -538,19 +823,41 @@ class PyramidScene extends Phaser.Scene {
         this.deselect();
         this.clearHints();
 
+        const dpX = GW / 2 - 55, wpX = GW / 2 + 55, dpY = 560;
+
         if (this.drawPile.length === 0) {
-            // Recycle
+            // Recycle - animate waste cards flying back to draw pile
             if (this.wastePile.length === 0) return;
             this.pushUndo('recycle');
-            while (this.wastePile.length > 0) {
-                const c = this.wastePile.pop();
-                c.faceUp = false;
-                this.drawPile.push(c);
+            this.animating = true;
+
+            // Animate waste pile card flying to draw pile position
+            if (this.uiElems.wpSpr) {
+                const wpSpr = this.uiElems.wpSpr;
+                this.tweens.add({
+                    targets: wpSpr,
+                    x: dpX,
+                    y: dpY,
+                    scaleX: 0.8,
+                    scaleY: 0.8,
+                    alpha: 0,
+                    duration: 300,
+                    ease: 'Power2.In',
+                });
             }
-            this.score = Math.max(0, this.score - 50);
-            this.floatText(220, 430, '-50', '#ff6666');
-            this.renderPiles();
-            this.refreshUI();
+
+            this.time.delayedCall(350, () => {
+                while (this.wastePile.length > 0) {
+                    const c = this.wastePile.pop();
+                    c.faceUp = false;
+                    this.drawPile.push(c);
+                }
+                this.score = Math.max(0, this.score - 50);
+                this.floatText(dpX, dpY - 40, '-50', '#ff6666');
+                this.renderPiles();
+                this.refreshUI();
+                this.animating = false;
+            });
             return;
         }
 
@@ -560,8 +867,23 @@ class PyramidScene extends Phaser.Scene {
         card.row = -1;
         card.col = -1;
         this.wastePile.push(card);
-        this.renderPiles();
-        this.refreshUI();
+
+        // Animate card sliding from draw to waste
+        this.animating = true;
+        const slideCard = this.add.image(dpX, dpY, 'f_' + card.id).setDepth(25);
+        this.tweens.add({
+            targets: slideCard,
+            x: wpX,
+            y: dpY,
+            duration: 250,
+            ease: 'Cubic.easeOut',
+            onComplete: () => {
+                slideCard.destroy();
+                this.renderPiles();
+                this.refreshUI();
+                this.animating = false;
+            }
+        });
     }
 
     // ============================================================
@@ -588,20 +910,16 @@ class PyramidScene extends Phaser.Scene {
         this.deselect();
         this.clearHints();
 
-        // Rebuild card map from fresh deck
         const allCards = makeDeck();
         const map = {};
         for (const c of allCards) map[c.id] = c;
 
-        // Restore draw pile
         this.drawPile = snap.drawIds.map(id => {
             const c = map[id]; c.faceUp = false; c.removed = false; c.row = -1; c.col = -1; return c;
         });
-        // Restore waste pile
         this.wastePile = snap.wasteIds.map(id => {
             const c = map[id]; c.faceUp = true; c.removed = false; c.row = -1; c.col = -1; return c;
         });
-        // Restore pyramid
         for (let row = 0; row < 7; row++) {
             for (let col = 0; col <= row; col++) {
                 const s = snap.pyramidSnap[row][col];
@@ -615,7 +933,6 @@ class PyramidScene extends Phaser.Scene {
         this.combo = snap.combo;
         this.pyramidRemain = snap.pyramidRemain;
 
-        // Full re-render
         this.sprites.forEach(s => s.destroy());
         this.sprites.clear();
         this.renderPyramid();
@@ -657,12 +974,34 @@ class PyramidScene extends Phaser.Scene {
 
         const p = pairs[0];
         const s1 = this.sprites.get(p.c1.id);
-        if (s1) this.hintGlows.push(this.add.image(s1.x, s1.y, 'glow_hint').setDepth(s1.depth + 0.5));
+        if (s1) {
+            const glow = this.add.image(s1.x, s1.y, 'glow_hint').setDepth(s1.depth + 0.5);
+            this.tweens.add({
+                targets: glow,
+                alpha: { from: 0.4, to: 1 },
+                duration: 500,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+            this.hintGlows.push(glow);
+        }
         if (p.c2) {
             const s2 = this.sprites.get(p.c2.id);
-            if (s2) this.hintGlows.push(this.add.image(s2.x, s2.y, 'glow_hint').setDepth(s2.depth + 0.5));
+            if (s2) {
+                const glow = this.add.image(s2.x, s2.y, 'glow_hint').setDepth(s2.depth + 0.5);
+                this.tweens.add({
+                    targets: glow,
+                    alpha: { from: 0.4, to: 1 },
+                    duration: 500,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
+                this.hintGlows.push(glow);
+            }
         }
-        this.time.delayedCall(2000, () => this.clearHints());
+        this.time.delayedCall(2500, () => this.clearHints());
     }
 
     clearHints() {
@@ -686,12 +1025,61 @@ class PyramidScene extends Phaser.Scene {
         const timeBonus = Math.max(0, 3000 - Math.floor(this.elapsed) * 5);
         this.score += timeBonus;
         this.showResult('\u606d\u559c\u901a\u5173\uff01', '#ffd700', timeBonus);
-        this.victoryFx();
+        this.confettiRain();
     }
 
     onLose() {
         this.gameOver = true;
-        this.showResult('\u6e38\u620f\u7ed3\u675f', '#ff6666', 0);
+        this.loseCardDrop();
+        this.time.delayedCall(800, () => {
+            this.showResult('\u6e38\u620f\u7ed3\u675f', '#ff6666', 0);
+        });
+    }
+
+    loseCardDrop() {
+        // Cards slowly fade and drop down
+        this.sprites.forEach(spr => {
+            this.tweens.add({
+                targets: spr,
+                y: spr.y + Phaser.Math.Between(30, 80),
+                alpha: 0.2,
+                duration: Phaser.Math.Between(600, 1000),
+                ease: 'Power2',
+                delay: Phaser.Math.Between(0, 300),
+            });
+        });
+    }
+
+    confettiRain() {
+        const colors = [0xffd700, 0xff4444, 0x44ff44, 0x4488ff, 0xff44ff, 0xffaa00, 0x00ffaa, 0xff8800];
+        for (let i = 0; i < 80; i++) {
+            const p = this.add.graphics().setDepth(99);
+            const color = colors[i % colors.length];
+            p.fillStyle(color, 1);
+            const w = Phaser.Math.Between(4, 10);
+            const h = Phaser.Math.Between(6, 14);
+            p.fillRect(-w / 2, -h / 2, w, h);
+            p.x = Phaser.Math.Between(-20, GW + 20);
+            p.y = Phaser.Math.Between(-80, -10);
+            p.angle = Phaser.Math.Between(0, 360);
+
+            const targetY = Phaser.Math.Between(GH + 20, GH + 100);
+            const drift = Phaser.Math.Between(-60, 60);
+            const dur = Phaser.Math.Between(2000, 4000);
+            const delay = Phaser.Math.Between(0, 1500);
+
+            this.tweens.add({
+                targets: p,
+                x: p.x + drift,
+                y: targetY,
+                angle: p.angle + Phaser.Math.Between(-360, 360),
+                alpha: { from: 1, to: 0.6 },
+                duration: dur,
+                delay: delay,
+                ease: 'Power1',
+                onComplete: () => p.destroy()
+            });
+        }
     }
 
     showResult(title, color, timeBonus) {
@@ -705,63 +1093,56 @@ class PyramidScene extends Phaser.Scene {
 
         const panel = this.add.graphics();
         panel.fillStyle(0x0d3d1f, 0.95);
-        panel.fillRoundedRect(-160, -130, 320, 260, 16);
+        panel.fillRoundedRect(-140, -120, 280, 240, 16);
         panel.lineStyle(2, 0x2a8a4a, 1);
-        panel.strokeRoundedRect(-160, -130, 320, 260, 16);
+        panel.strokeRoundedRect(-140, -120, 280, 240, 16);
         c.add(panel);
 
-        c.add(this.add.text(0, -90, title, { fontSize: '30px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color }).setOrigin(0.5));
-        c.add(this.add.text(0, -45, '\u6700\u7ec8\u5f97\u5206: ' + this.score, { fontSize: '22px', fontFamily: 'Arial,sans-serif', color: '#ffffff' }).setOrigin(0.5));
-        if (timeBonus > 0) c.add(this.add.text(0, -10, '\u65f6\u95f4\u5956\u52b1: +' + timeBonus, { fontSize: '18px', fontFamily: 'Arial,sans-serif', color: '#88ddff' }).setOrigin(0.5));
-        c.add(this.add.text(0, 25, '\u7528\u65f6: ' + this.fmtTime(this.elapsed), { fontSize: '18px', fontFamily: 'Arial,sans-serif', color: '#aaddbb' }).setOrigin(0.5));
+        c.add(this.add.text(0, -80, title, { fontSize: '26px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color }).setOrigin(0.5));
+        c.add(this.add.text(0, -40, '\u6700\u7ec8\u5f97\u5206: ' + this.score, { fontSize: '20px', fontFamily: 'Arial,sans-serif', color: '#ffffff' }).setOrigin(0.5));
+        if (timeBonus > 0) c.add(this.add.text(0, -5, '\u65f6\u95f4\u5956\u52b1: +' + timeBonus, { fontSize: '16px', fontFamily: 'Arial,sans-serif', color: '#88ddff' }).setOrigin(0.5));
+        c.add(this.add.text(0, 25, '\u7528\u65f6: ' + this.fmtTime(this.elapsed), { fontSize: '16px', fontFamily: 'Arial,sans-serif', color: '#aaddbb' }).setOrigin(0.5));
 
         // Button
-        const bw = 140, bh = 40;
+        const bw = 130, bh = 38;
         const btnBg = this.add.graphics();
         btnBg.fillStyle(0x228844, 1);
-        btnBg.fillRoundedRect(-bw / 2, 60, bw, bh, 8);
+        btnBg.fillRoundedRect(-bw / 2, 55, bw, bh, 8);
         btnBg.lineStyle(1.5, 0x33bb66, 0.8);
-        btnBg.strokeRoundedRect(-bw / 2, 60, bw, bh, 8);
+        btnBg.strokeRoundedRect(-bw / 2, 55, bw, bh, 8);
         c.add(btnBg);
-        c.add(this.add.text(0, 80, '\u518d\u6765\u4e00\u5c40', { fontSize: '18px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5));
+        c.add(this.add.text(0, 74, '\u518d\u6765\u4e00\u5c40', { fontSize: '16px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5));
 
-        const hit = this.add.rectangle(0, 80, bw, bh, 0, 0).setInteractive({ useHandCursor: true });
+        const hit = this.add.rectangle(0, 74, bw, bh, 0, 0).setInteractive({ useHandCursor: true });
         hit.on('pointerdown', () => { c.destroy(); this.resultBox = null; this.newGame(); });
         c.add(hit);
 
         this.resultBox = c;
         c.setAlpha(0);
-        this.tweens.add({ targets: c, alpha: 1, duration: 400, ease: 'Power2' });
-    }
-
-    victoryFx() {
-        const colors = [0xffd700, 0xff4444, 0x44ff44, 0x4488ff, 0xff44ff, 0xffaa00];
-        for (let i = 0; i < 50; i++) {
-            const p = this.add.graphics().setDepth(99);
-            p.fillStyle(colors[i % colors.length], 1);
-            p.fillCircle(0, 0, Phaser.Math.Between(3, 9));
-            p.x = GW / 2; p.y = GH / 2;
-            const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
-            const d = Phaser.Math.Between(80, 380);
-            this.tweens.add({
-                targets: p,
-                x: GW / 2 + Math.cos(a) * d, y: GH / 2 + Math.sin(a) * d,
-                alpha: 0, scaleX: 0.2, scaleY: 0.2,
-                duration: Phaser.Math.Between(700, 1600),
-                delay: Phaser.Math.Between(0, 400),
-                ease: 'Power2',
-                onComplete: () => p.destroy()
-            });
-        }
+        c.setScale(0.8);
+        this.tweens.add({ targets: c, alpha: 1, scaleX: 1, scaleY: 1, duration: 400, ease: 'Back.Out' });
     }
 
     // ============================================================
     // UI helpers
     // ============================================================
     refreshUI() {
-        this.uiElems.scoreTxt.setText('\u5206\u6570: ' + this.score);
+        // Score rolls up smoothly
+        this.uiElems.scoreTxt.setText('\u5206\u6570: ' + this.displayScore);
         this.uiElems.comboTxt.setText('\u8fde\u51fb: x' + this.combo);
         this.uiElems.remainTxt.setText('\u5269\u4f59: ' + this.pyramidRemain);
+    }
+
+    pulseCombo() {
+        const txt = this.uiElems.comboTxt;
+        this.tweens.add({
+            targets: txt,
+            scaleX: 1.5,
+            scaleY: 1.5,
+            duration: 150,
+            yoyo: true,
+            ease: 'Back.Out',
+        });
     }
 
     fmtTime(s) {
@@ -776,9 +1157,9 @@ class PyramidScene extends Phaser.Scene {
 
     floatText(x, y, text, color) {
         const t = this.add.text(x, y, text, {
-            fontSize: '20px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color
+            fontSize: '18px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color
         }).setOrigin(0.5).setDepth(60);
-        this.tweens.add({ targets: t, y: y - 45, alpha: 0, duration: 1000, ease: 'Power2', onComplete: () => t.destroy() });
+        this.tweens.add({ targets: t, y: y - 40, alpha: 0, duration: 1000, ease: 'Power2', onComplete: () => t.destroy() });
     }
 
     onNewGame() {
@@ -791,6 +1172,24 @@ class PyramidScene extends Phaser.Scene {
             this.elapsed += delta / 1000;
             this.uiElems.timeTxt.setText('\u65f6\u95f4: ' + this.fmtTime(this.elapsed));
         }
+
+        // Smooth score rollup
+        if (this.displayScore < this.score) {
+            const diff = this.score - this.displayScore;
+            const step = Math.max(1, Math.ceil(diff * 0.15));
+            this.displayScore = Math.min(this.score, this.displayScore + step);
+            this.uiElems.scoreTxt.setText('\u5206\u6570: ' + this.displayScore);
+        }
+
+        // Background particles
+        this.updateBgParticles(time);
+
+        // Card back shimmer
+        this.shimmerTimer += delta;
+        if (this.uiElems.dpSpr && this.uiElems.dpSpr.active) {
+            const shimmerAlpha = 0.05 + 0.05 * Math.sin(this.shimmerTimer * 0.003);
+            this.uiElems.dpSpr.setAlpha(1); // base alpha stays, shimmer is subtle
+        }
     }
 }
 
@@ -802,7 +1201,7 @@ const config = {
     width: GW,
     height: GH,
     parent: 'game-container',
-    backgroundColor: '#1a6b3c',
+    backgroundColor: '#0a2e15',
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
