@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>金字塔纸牌</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0d3d1f; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+#game-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+</style>
+</head>
+<body>
+<div id="game-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script>
+// ============================================================
+// 金字塔纸牌 (Pyramid Solitaire) - Phaser 3 H5 Game
+// ============================================================
+
+const CARD_W = 70;
+const CARD_H = 100;
+const CARD_R = 8;
+const SUITS = ['spade', 'heart', 'diamond', 'club'];
+const SUIT_SYM = { spade: '\u2660', heart: '\u2665', diamond: '\u2666', club: '\u2663' };
+const SUIT_CLR = { spade: '#1a1a1a', heart: '#cc1111', diamond: '#cc1111', club: '#1a1a1a' };
+const RANK_NAME = ['', 'A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const GW = 800, GH = 600;
+
+// ============================================================
+// Data helpers
+// ============================================================
+function makeDeck() {
+    const d = [];
+    for (const s of SUITS) for (let r = 1; r <= 13; r++) d.push({ suit: s, rank: r, id: s + r });
+    return d;
+}
+function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+}
+
+// ============================================================
+// Texture generators
+// ============================================================
+function genCardFace(scene, key, card) {
+    const rt = scene.add.renderTexture(0, 0, CARD_W, CARD_H);
+    const clr = SUIT_CLR[card.suit];
+    const sym = SUIT_SYM[card.suit];
+    const rn = RANK_NAME[card.rank];
+
+    // White card body
+    const bg = scene.add.graphics();
+    bg.fillStyle(0xffffff, 1);
+    bg.fillRoundedRect(0, 0, CARD_W, CARD_H, CARD_R);
+    bg.lineStyle(1, 0xbbbbbb, 0.7);
+    bg.strokeRoundedRect(0, 0, CARD_W, CARD_H, CARD_R);
+    rt.draw(bg, 0, 0);
+    bg.destroy();
+
+    // Top-left rank
+    const t1 = scene.add.text(5, 2, rn, { fontSize: '15px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: clr });
+    rt.draw(t1, 5, 2); t1.destroy();
+    // Top-left suit
+    const t2 = scene.add.text(5, 16, sym, { fontSize: '13px', fontFamily: 'Arial,sans-serif', color: clr });
+    rt.draw(t2, 5, 16); t2.destroy();
+
+    // Center large suit
+    const t3 = scene.add.text(CARD_W / 2, CARD_H / 2, sym, { fontSize: '34px', fontFamily: 'Arial,sans-serif', color: clr }).setOrigin(0.5);
+    rt.draw(t3, 0, 0); t3.destroy();
+
+    // Bottom-right (rotated)
+    const t4 = scene.add.text(0, 0, rn, { fontSize: '15px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: clr }).setOrigin(0.5).setAngle(180);
+    rt.draw(t4, CARD_W - 5, CARD_H - 10); t4.destroy();
+    const t5 = scene.add.text(0, 0, sym, { fontSize: '13px', fontFamily: 'Arial,sans-serif', color: clr }).setOrigin(0.5).setAngle(180);
+    rt.draw(t5, CARD_W - 5, CARD_H - 24); t5.destroy();
+
+    rt.saveTexture(key);
+    rt.destroy();
+}
+
+function genCardBack(scene, key) {
+    const rt = scene.add.renderTexture(0, 0, CARD_W, CARD_H);
+    const bg = scene.add.graphics();
+    bg.fillStyle(0x1a4488, 1);
+    bg.fillRoundedRect(0, 0, CARD_W, CARD_H, CARD_R);
+    bg.lineStyle(1.5, 0x0e2d5e, 1);
+    bg.strokeRoundedRect(0, 0, CARD_W, CARD_H, CARD_R);
+    rt.draw(bg, 0, 0); bg.destroy();
+
+    const inner = scene.add.graphics();
+    inner.lineStyle(1, 0x3366aa, 0.7);
+    inner.strokeRoundedRect(5, 5, CARD_W - 10, CARD_H - 10, CARD_R - 2);
+    rt.draw(inner, 0, 0); inner.destroy();
+
+    // Diamond pattern
+    const pat = scene.add.graphics();
+    pat.fillStyle(0x2a5599, 0.6);
+    const cx = CARD_W / 2, cy = CARD_H / 2;
+    for (let dy = -4; dy <= 4; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+            const px = cx + dx * 14, py = cy + dy * 10;
+            if (px > 9 && px < CARD_W - 9 && py > 9 && py < CARD_H - 9) {
+                pat.fillTriangle(px, py - 8, px + 8, py, px, py + 8, px - 8, py);
+            }
+        }
+    }
+    rt.draw(pat, 0, 0); pat.destroy();
+
+    rt.saveTexture(key);
+    rt.destroy();
+}
+
+function genGlowTexture(scene, key, color, alpha) {
+    const rt = scene.add.renderTexture(0, 0, CARD_W + 10, CARD_H + 10);
+    const g = scene.add.graphics();
+    g.lineStyle(3, color, 1);
+    g.strokeRoundedRect(3, 3, CARD_W + 4, CARD_H + 4, CARD_R + 2);
+    g.fillStyle(color, alpha);
+    g.fillRoundedRect(3, 3, CARD_W + 4, CARD_H + 4, CARD_R + 2);
+    rt.draw(g, 0, 0); g.destroy();
+    rt.saveTexture(key);
+    rt.destroy();
+}
+
+// ============================================================
+// Main Scene
+// ============================================================
+class PyramidScene extends Phaser.Scene {
+    constructor() { super('PyramidScene'); }
+
+    create() {
+        // State
+        this.score = 0;
+        this.combo = 0;
+        this.comboTimer = null;
+        this.undoStack = [];
+        this.selected = null;       // card data
+        this.selectedSpr = null;    // sprite
+        this.selGlow = null;        // highlight image
+        this.hintGlows = [];
+        this.animating = false;
+        this.gameOver = false;
+        this.elapsed = 0;
+        this.pyramid = [];          // [row][col]
+        this.sprites = new Map();   // id -> sprite
+        this.drawPile = [];
+        this.wastePile = [];
+        this.uiElems = {};          // persistent UI references
+
+        // Background
+        this.cameras.main.setBackgroundColor('#1a6b3c');
+        const felt = this.add.graphics().setDepth(0);
+        felt.fillStyle(0x1a6b3c, 0.3);
+        felt.fillRect(0, 0, GW, GH);
+        felt.lineStyle(2, 0x145530, 0.5);
+        felt.strokeRect(8, 8, GW - 16, GH - 16);
+
+        // Generate all textures
+        const deck = makeDeck();
+        for (const c of deck) genCardFace(this, 'f_' + c.id, c);
+        genCardBack(this, 'back');
+        genGlowTexture(this, 'glow_sel', 0xffd700, 0.18);
+        genGlowTexture(this, 'glow_hint', 0x00ff88, 0.18);
+
+        // Static UI
+        this.buildStaticUI();
+
+        // Start game
+        this.newGame();
+    }
+
+    buildStaticUI() {
+        // Top bar
+        const tb = this.add.graphics().setDepth(80);
+        tb.fillStyle(0x0d3d1f, 0.9);
+        tb.fillRect(0, 0, GW, 42);
+        tb.lineStyle(1, 0x2a8a4a, 0.6);
+        tb.lineBetween(0, 42, GW, 42);
+
+        this.uiElems.scoreTxt = this.add.text(15, 11, '', { fontSize: '17px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: '#ffd700' }).setDepth(81);
+        this.uiElems.timeTxt = this.add.text(180, 11, '', { fontSize: '17px', fontFamily: 'Arial,sans-serif', color: '#ffffff' }).setDepth(81);
+        this.uiElems.comboTxt = this.add.text(370, 11, '', { fontSize: '17px', fontFamily: 'Arial,sans-serif', color: '#ff8844' }).setDepth(81);
+        this.uiElems.remainTxt = this.add.text(540, 11, '', { fontSize: '17px', fontFamily: 'Arial,sans-serif', color: '#88ddff' }).setDepth(81);
+
+        // Bottom bar
+        const bb = this.add.graphics().setDepth(80);
+        bb.fillStyle(0x0d3d1f, 0.85);
+        bb.fillRect(0, GH - 50, GW, 50);
+        bb.lineStyle(1, 0x2a8a4a, 0.5);
+        bb.lineBetween(0, GH - 50, GW, GH - 50);
+
+        this.makeBtn(180, GH - 25, '\u65b0\u6e38\u620f', 0x228844, this.onNewGame);
+        this.makeBtn(360, GH - 25, '\u64a4\u9500', 0x886622, this.onUndo);
+        this.makeBtn(540, GH - 25, '\u63d0\u793a', 0x226688, this.onHint);
+    }
+
+    makeBtn(x, y, label, color, cb) {
+        const w = 100, h = 34;
+        const bg = this.add.graphics().setDepth(81);
+        const drawBg = (c) => {
+            bg.clear();
+            bg.fillStyle(c, 1);
+            bg.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+            const b = Phaser.Display.Color.IntegerToColor(c).brighten(30).color;
+            bg.lineStyle(1.5, b, 0.8);
+            bg.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 6);
+        };
+        drawBg(color);
+
+        this.add.text(x, y, label, { fontSize: '16px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5).setDepth(82);
+
+        const hit = this.add.rectangle(x, y, w, h, 0x000000, 0).setInteractive({ useHandCursor: true }).setDepth(83);
+        hit.on('pointerover', () => drawBg(Phaser.Display.Color.IntegerToColor(color).brighten(20).color));
+        hit.on('pointerout', () => drawBg(color));
+        hit.on('pointerdown', cb, this);
+    }
+
+    // ============================================================
+    // New Game
+    // ============================================================
+    newGame() {
+        this.score = 0;
+        this.combo = 0;
+        this.elapsed = 0;
+        this.undoStack = [];
+        this.animating = false;
+        this.gameOver = false;
+        this.pyramidRemain = 28;
+        this.deselect();
+        this.clearHints();
+
+        // Clean old sprites
+        this.sprites.forEach(s => s.destroy());
+        this.sprites.clear();
+        if (this.uiElems.dpSpr) { this.uiElems.dpSpr.destroy(); this.uiElems.dpSpr = null; }
+        if (this.uiElems.wpSpr) { this.uiElems.wpSpr.destroy(); this.uiElems.wpSpr = null; }
+        if (this.uiElems.dpLabel) { this.uiElems.dpLabel.destroy(); this.uiElems.dpLabel = null; }
+        if (this.uiElems.wpLabel) { this.uiElems.wpLabel.destroy(); this.uiElems.wpLabel = null; }
+        if (this.uiElems.dpEmpty) { this.uiElems.dpEmpty.destroy(); this.uiElems.dpEmpty = null; }
+        if (this.uiElems.wpEmpty) { this.uiElems.wpEmpty.destroy(); this.uiElems.wpEmpty = null; }
+        if (this.resultBox) { this.resultBox.destroy(); this.resultBox = null; }
+
+        // Deal
+        const deck = shuffle(makeDeck());
+        this.pyramid = [];
+        let idx = 0;
+        for (let row = 0; row < 7; row++) {
+            this.pyramid[row] = [];
+            for (let col = 0; col <= row; col++) {
+                const c = deck[idx++];
+                c.row = row; c.col = col;
+                c.faceUp = (row >= 5);
+                c.removed = false;
+                this.pyramid[row][col] = c;
+            }
+        }
+        this.drawPile = [];
+        for (let i = idx; i < deck.length; i++) {
+            const c = deck[i];
+            c.faceUp = false; c.removed = false; c.row = -1; c.col = -1;
+            this.drawPile.push(c);
+        }
+        this.wastePile = [];
+
+        this.renderPyramid();
+        this.renderPiles();
+        this.refreshUI();
+    }
+
+    // ============================================================
+    // Rendering
+    // ============================================================
+    renderPyramid() {
+        const cx = GW / 2;
+        const topY = 48;
+        const colGap = 76;
+        // Row 6 bottom must be < 400 (leave room for piles at y=460)
+        // 48 + 6*step + 100 < 400 => step < 42
+        // But cards need to overlap to show the pyramid. Use step=42.
+        const rowStep = 42;
+
+        for (let row = 0; row < 7; row++) {
+            for (let col = 0; col <= row; col++) {
+                const card = this.pyramid[row][col];
+                if (card.removed) continue;
+                const x = cx + (col - row / 2) * colGap;
+                const y = topY + row * rowStep;
+                this.makeCardSprite(card, x, y, true);
+            }
+        }
+    }
+
+    renderPiles() {
+        const dpX = 220, dpY = 460;
+        const wpX = 380, wpY = 460;
+
+        // Draw pile
+        if (this.uiElems.dpSpr) { this.uiElems.dpSpr.destroy(); this.uiElems.dpSpr = null; }
+        if (this.uiElems.dpEmpty) { this.uiElems.dpEmpty.destroy(); this.uiElems.dpEmpty = null; }
+
+        if (this.drawPile.length > 0) {
+            this.uiElems.dpSpr = this.add.image(dpX, dpY, 'back').setInteractive({ useHandCursor: true }).setDepth(20);
+            this.uiElems.dpSpr.on('pointerdown', this.onDrawClick, this);
+        } else {
+            const g = this.add.graphics().setDepth(20);
+            g.lineStyle(2, 0x2a8a4a, 0.5);
+            g.strokeRoundedRect(dpX - CARD_W / 2, dpY - CARD_H / 2, CARD_W, CARD_H, CARD_R);
+            this.uiElems.dpEmpty = g;
+        }
+
+        if (this.uiElems.dpLabel) this.uiElems.dpLabel.destroy();
+        this.uiElems.dpLabel = this.add.text(dpX, dpY + CARD_H / 2 + 12,
+            '\u53d1\u724c\u5806: ' + this.drawPile.length, {
+            fontSize: '13px', fontFamily: 'Arial,sans-serif', color: '#aaddbb'
+        }).setOrigin(0.5).setDepth(21);
+
+        // Waste pile
+        if (this.uiElems.wpSpr) { this.uiElems.wpSpr.destroy(); this.uiElems.wpSpr = null; }
+        if (this.uiElems.wpEmpty) { this.uiElems.wpEmpty.destroy(); this.uiElems.wpEmpty = null; }
+
+        if (this.wastePile.length > 0) {
+            const top = this.wastePile[this.wastePile.length - 1];
+            this.uiElems.wpSpr = this.makeCardSprite(top, wpX, wpY, false);
+            this.uiElems.wpSpr.setDepth(20);
+        } else {
+            const g = this.add.graphics().setDepth(20);
+            g.lineStyle(2, 0x2a8a4a, 0.5);
+            g.strokeRoundedRect(wpX - CARD_W / 2, wpY - CARD_H / 2, CARD_W, CARD_H, CARD_R);
+            this.uiElems.wpEmpty = g;
+        }
+
+        if (this.uiElems.wpLabel) this.uiElems.wpLabel.destroy();
+        this.uiElems.wpLabel = this.add.text(wpX, wpY + CARD_H / 2 + 12,
+            '\u5e9f\u724c\u5806', {
+            fontSize: '13px', fontFamily: 'Arial,sans-serif', color: '#aaddbb'
+        }).setOrigin(0.5).setDepth(21);
+    }
+
+    makeCardSprite(card, x, y, isPyramid) {
+        if (this.sprites.has(card.id)) {
+            this.sprites.get(card.id).destroy();
+            this.sprites.delete(card.id);
+        }
+        const tex = card.faceUp ? ('f_' + card.id) : 'back';
+        const spr = this.add.image(x, y, tex).setInteractive({ useHandCursor: true });
+        spr.cardData = card;
+        spr.isPyramid = isPyramid;
+        spr.setDepth(isPyramid && card.row >= 0 ? card.row + 1 : 20);
+        spr.on('pointerdown', () => this.onCardClick(spr));
+        this.sprites.set(card.id, spr);
+        return spr;
+    }
+
+    // ============================================================
+    // Card logic
+    // ============================================================
+    isFree(card) {
+        if (!card.faceUp || card.removed) return false;
+        if (card.row < 0) return true; // waste pile
+        const nr = card.row + 1;
+        if (nr >= 7) return true;
+        return this.pyramid[nr][card.col].removed && this.pyramid[nr][card.col + 1].removed;
+    }
+
+    onCardClick(spr) {
+        if (this.animating || this.gameOver) return;
+        const card = spr.cardData;
+        if (!card.faceUp) return;
+        if (card.row >= 0 && !this.isFree(card)) return;
+
+        this.clearHints();
+
+        // K standalone removal
+        if (card.rank === 13 && this.selected === null) {
+            this.removeKing(card);
+            return;
+        }
+        // If K is selected and clicked again, deselect
+        if (card.rank === 13 && this.selected && this.selected.id === card.id) {
+            this.deselect();
+            return;
+        }
+        // If K is second click and sum=13 with selected (shouldn't happen since K=13, need another 0), just treat as new selection
+        if (card.rank === 13 && this.selected) {
+            this.deselect();
+            this.selectCard(card, spr);
+            return;
+        }
+
+        if (this.selected === null) {
+            this.selectCard(card, spr);
+        } else if (this.selected.id === card.id) {
+            this.deselect();
+        } else {
+            const first = this.selected;
+            if (first.rank + card.rank === 13) {
+                this.removePair(first, card);
+            } else {
+                this.deselect();
+                this.selectCard(card, spr);
+            }
+        }
+    }
+
+    selectCard(card, spr) {
+        this.selected = card;
+        this.selectedSpr = spr;
+        if (this.selGlow) this.selGlow.destroy();
+        this.selGlow = this.add.image(spr.x, spr.y, 'glow_sel').setDepth(spr.depth + 0.5);
+    }
+
+    deselect() {
+        this.selected = null;
+        this.selectedSpr = null;
+        if (this.selGlow) { this.selGlow.destroy(); this.selGlow = null; }
+    }
+
+    // ============================================================
+    // Removal
+    // ============================================================
+    removePair(c1, c2) {
+        this.animating = true;
+        this.pushUndo('pair', c1, c2);
+
+        const s1 = this.sprites.get(c1.id);
+        const s2 = this.sprites.get(c2.id);
+
+        this.combo++;
+        const bonus = Math.min(this.combo - 1, 10) * 50;
+        const pts = 100 + bonus;
+        this.score += pts;
+        this.floatText(s1 ? s1.x : 400, s1 ? s1.y - 30 : 300, '+' + pts, '#ffd700');
+        this.resetComboTimer();
+
+        c1.removed = true;
+        c2.removed = true;
+        this.removeFromWaste(c1);
+        this.removeFromWaste(c2);
+        if (c1.row >= 0) this.pyramidRemain--;
+        if (c2.row >= 0) this.pyramidRemain--;
+
+        this.flipFreed();
+        this.deselect();
+
+        const targets = [s1, s2].filter(Boolean);
+        this.tweens.add({
+            targets: targets,
+            scaleX: 0, scaleY: 0, alpha: 0,
+            duration: 280, ease: 'Back.In',
+            onComplete: () => {
+                targets.forEach(s => s.destroy());
+                this.sprites.delete(c1.id);
+                this.sprites.delete(c2.id);
+                this.renderPiles();
+                this.refreshUI();
+                this.animating = false;
+                this.checkEnd();
+            }
+        });
+    }
+
+    removeKing(card) {
+        this.animating = true;
+        this.pushUndo('king', card);
+
+        const spr = this.sprites.get(card.id);
+        this.combo++;
+        const bonus = Math.min(this.combo - 1, 10) * 50;
+        const pts = 150 + bonus;
+        this.score += pts;
+        this.floatText(spr ? spr.x : 400, spr ? spr.y - 30 : 300, '+' + pts, '#ffd700');
+        this.resetComboTimer();
+
+        card.removed = true;
+        this.removeFromWaste(card);
+        if (card.row >= 0) this.pyramidRemain--;
+
+        this.flipFreed();
+        this.deselect();
+
+        if (spr) {
+            this.tweens.add({
+                targets: [spr],
+                scaleX: 1.4, scaleY: 1.4, alpha: 0,
+                duration: 320, ease: 'Back.In',
+                onComplete: () => {
+                    spr.destroy();
+                    this.sprites.delete(card.id);
+                    this.renderPiles();
+                    this.refreshUI();
+                    this.animating = false;
+                    this.checkEnd();
+                }
+            });
+        } else {
+            this.renderPiles();
+            this.refreshUI();
+            this.animating = false;
+            this.checkEnd();
+        }
+    }
+
+    removeFromWaste(card) {
+        if (card.row < 0) {
+            const i = this.wastePile.indexOf(card);
+            if (i >= 0) this.wastePile.splice(i, 1);
+        }
+    }
+
+    flipFreed() {
+        for (let row = 0; row < 7; row++) {
+            for (let col = 0; col <= row; col++) {
+                const c = this.pyramid[row][col];
+                if (!c.removed && !c.faceUp && this.isFree(c)) {
+                    c.faceUp = true;
+                    const spr = this.sprites.get(c.id);
+                    if (spr) {
+                        this.tweens.add({
+                            targets: spr, scaleX: 0,
+                            duration: 120, ease: 'Power2',
+                            onComplete: () => {
+                                spr.setTexture('f_' + c.id);
+                                this.tweens.add({ targets: spr, scaleX: 1, duration: 120, ease: 'Power2' });
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // ============================================================
+    // Draw pile
+    // ============================================================
+    onDrawClick() {
+        if (this.animating || this.gameOver) return;
+        this.deselect();
+        this.clearHints();
+
+        if (this.drawPile.length === 0) {
+            // Recycle
+            if (this.wastePile.length === 0) return;
+            this.pushUndo('recycle');
+            while (this.wastePile.length > 0) {
+                const c = this.wastePile.pop();
+                c.faceUp = false;
+                this.drawPile.push(c);
+            }
+            this.score = Math.max(0, this.score - 50);
+            this.floatText(220, 430, '-50', '#ff6666');
+            this.renderPiles();
+            this.refreshUI();
+            return;
+        }
+
+        this.pushUndo('draw');
+        const card = this.drawPile.pop();
+        card.faceUp = true;
+        card.row = -1;
+        card.col = -1;
+        this.wastePile.push(card);
+        this.renderPiles();
+        this.refreshUI();
+    }
+
+    // ============================================================
+    // Undo
+    // ============================================================
+    pushUndo(action, c1, c2) {
+        this.undoStack.push({
+            action,
+            score: this.score,
+            combo: this.combo,
+            pyramidRemain: this.pyramidRemain,
+            pyramidSnap: this.pyramid.map(row => row.map(c => ({ id: c.id, faceUp: c.faceUp, removed: c.removed, row: c.row, col: c.col }))),
+            drawIds: this.drawPile.map(c => c.id),
+            wasteIds: this.wastePile.map(c => c.id)
+        });
+        if (this.undoStack.length > 50) this.undoStack.shift();
+    }
+
+    onUndo() {
+        if (this.animating || this.gameOver) return;
+        if (this.undoStack.length === 0) return;
+
+        const snap = this.undoStack.pop();
+        this.deselect();
+        this.clearHints();
+
+        // Rebuild card map from fresh deck
+        const allCards = makeDeck();
+        const map = {};
+        for (const c of allCards) map[c.id] = c;
+
+        // Restore draw pile
+        this.drawPile = snap.drawIds.map(id => {
+            const c = map[id]; c.faceUp = false; c.removed = false; c.row = -1; c.col = -1; return c;
+        });
+        // Restore waste pile
+        this.wastePile = snap.wasteIds.map(id => {
+            const c = map[id]; c.faceUp = true; c.removed = false; c.row = -1; c.col = -1; return c;
+        });
+        // Restore pyramid
+        for (let row = 0; row < 7; row++) {
+            for (let col = 0; col <= row; col++) {
+                const s = snap.pyramidSnap[row][col];
+                const c = map[s.id];
+                c.faceUp = s.faceUp; c.removed = s.removed; c.row = s.row; c.col = s.col;
+                this.pyramid[row][col] = c;
+            }
+        }
+
+        this.score = snap.score;
+        this.combo = snap.combo;
+        this.pyramidRemain = snap.pyramidRemain;
+
+        // Full re-render
+        this.sprites.forEach(s => s.destroy());
+        this.sprites.clear();
+        this.renderPyramid();
+        this.renderPiles();
+        this.refreshUI();
+    }
+
+    // ============================================================
+    // Hint
+    // ============================================================
+    findPairs() {
+        const free = [];
+        for (let row = 0; row < 7; row++)
+            for (let col = 0; col <= row; col++)
+                if (this.isFree(this.pyramid[row][col])) free.push(this.pyramid[row][col]);
+        if (this.wastePile.length > 0) {
+            const wt = this.wastePile[this.wastePile.length - 1];
+            if (!wt.removed) free.push(wt);
+        }
+
+        const pairs = [];
+        for (const c of free) if (c.rank === 13) pairs.push({ type: 'king', c1: c, c2: null });
+        for (let i = 0; i < free.length; i++)
+            for (let j = i + 1; j < free.length; j++)
+                if (free[i].rank + free[j].rank === 13) pairs.push({ type: 'pair', c1: free[i], c2: free[j] });
+        return pairs;
+    }
+
+    onHint() {
+        if (this.animating || this.gameOver) return;
+        this.deselect();
+        this.clearHints();
+
+        const pairs = this.findPairs();
+        if (pairs.length === 0) {
+            this.floatText(GW / 2, GH / 2, '\u6ca1\u6709\u53ef\u7528\u7684\u914d\u5bf9\uff01', '#ff6666');
+            return;
+        }
+
+        const p = pairs[0];
+        const s1 = this.sprites.get(p.c1.id);
+        if (s1) this.hintGlows.push(this.add.image(s1.x, s1.y, 'glow_hint').setDepth(s1.depth + 0.5));
+        if (p.c2) {
+            const s2 = this.sprites.get(p.c2.id);
+            if (s2) this.hintGlows.push(this.add.image(s2.x, s2.y, 'glow_hint').setDepth(s2.depth + 0.5));
+        }
+        this.time.delayedCall(2000, () => this.clearHints());
+    }
+
+    clearHints() {
+        this.hintGlows.forEach(h => h.destroy());
+        this.hintGlows = [];
+    }
+
+    // ============================================================
+    // Win / Lose
+    // ============================================================
+    checkEnd() {
+        if (this.pyramidRemain <= 0) { this.onWin(); return; }
+        const pairs = this.findPairs();
+        const canDraw = this.drawPile.length > 0;
+        const canRecycle = this.wastePile.length > 0 && this.drawPile.length === 0;
+        if (pairs.length === 0 && !canDraw && !canRecycle) this.onLose();
+    }
+
+    onWin() {
+        this.gameOver = true;
+        const timeBonus = Math.max(0, 3000 - Math.floor(this.elapsed) * 5);
+        this.score += timeBonus;
+        this.showResult('\u606d\u559c\u901a\u5173\uff01', '#ffd700', timeBonus);
+        this.victoryFx();
+    }
+
+    onLose() {
+        this.gameOver = true;
+        this.showResult('\u6e38\u620f\u7ed3\u675f', '#ff6666', 0);
+    }
+
+    showResult(title, color, timeBonus) {
+        if (this.resultBox) this.resultBox.destroy();
+        const c = this.add.container(GW / 2, GH / 2).setDepth(100);
+
+        const dim = this.add.graphics();
+        dim.fillStyle(0x000000, 0.6);
+        dim.fillRect(-GW / 2, -GH / 2, GW, GH);
+        c.add(dim);
+
+        const panel = this.add.graphics();
+        panel.fillStyle(0x0d3d1f, 0.95);
+        panel.fillRoundedRect(-160, -130, 320, 260, 16);
+        panel.lineStyle(2, 0x2a8a4a, 1);
+        panel.strokeRoundedRect(-160, -130, 320, 260, 16);
+        c.add(panel);
+
+        c.add(this.add.text(0, -90, title, { fontSize: '30px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color }).setOrigin(0.5));
+        c.add(this.add.text(0, -45, '\u6700\u7ec8\u5f97\u5206: ' + this.score, { fontSize: '22px', fontFamily: 'Arial,sans-serif', color: '#ffffff' }).setOrigin(0.5));
+        if (timeBonus > 0) c.add(this.add.text(0, -10, '\u65f6\u95f4\u5956\u52b1: +' + timeBonus, { fontSize: '18px', fontFamily: 'Arial,sans-serif', color: '#88ddff' }).setOrigin(0.5));
+        c.add(this.add.text(0, 25, '\u7528\u65f6: ' + this.fmtTime(this.elapsed), { fontSize: '18px', fontFamily: 'Arial,sans-serif', color: '#aaddbb' }).setOrigin(0.5));
+
+        // Button
+        const bw = 140, bh = 40;
+        const btnBg = this.add.graphics();
+        btnBg.fillStyle(0x228844, 1);
+        btnBg.fillRoundedRect(-bw / 2, 60, bw, bh, 8);
+        btnBg.lineStyle(1.5, 0x33bb66, 0.8);
+        btnBg.strokeRoundedRect(-bw / 2, 60, bw, bh, 8);
+        c.add(btnBg);
+        c.add(this.add.text(0, 80, '\u518d\u6765\u4e00\u5c40', { fontSize: '18px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5));
+
+        const hit = this.add.rectangle(0, 80, bw, bh, 0, 0).setInteractive({ useHandCursor: true });
+        hit.on('pointerdown', () => { c.destroy(); this.resultBox = null; this.newGame(); });
+        c.add(hit);
+
+        this.resultBox = c;
+        c.setAlpha(0);
+        this.tweens.add({ targets: c, alpha: 1, duration: 400, ease: 'Power2' });
+    }
+
+    victoryFx() {
+        const colors = [0xffd700, 0xff4444, 0x44ff44, 0x4488ff, 0xff44ff, 0xffaa00];
+        for (let i = 0; i < 50; i++) {
+            const p = this.add.graphics().setDepth(99);
+            p.fillStyle(colors[i % colors.length], 1);
+            p.fillCircle(0, 0, Phaser.Math.Between(3, 9));
+            p.x = GW / 2; p.y = GH / 2;
+            const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+            const d = Phaser.Math.Between(80, 380);
+            this.tweens.add({
+                targets: p,
+                x: GW / 2 + Math.cos(a) * d, y: GH / 2 + Math.sin(a) * d,
+                alpha: 0, scaleX: 0.2, scaleY: 0.2,
+                duration: Phaser.Math.Between(700, 1600),
+                delay: Phaser.Math.Between(0, 400),
+                ease: 'Power2',
+                onComplete: () => p.destroy()
+            });
+        }
+    }
+
+    // ============================================================
+    // UI helpers
+    // ============================================================
+    refreshUI() {
+        this.uiElems.scoreTxt.setText('\u5206\u6570: ' + this.score);
+        this.uiElems.comboTxt.setText('\u8fde\u51fb: x' + this.combo);
+        this.uiElems.remainTxt.setText('\u5269\u4f59: ' + this.pyramidRemain);
+    }
+
+    fmtTime(s) {
+        const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+        return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    }
+
+    resetComboTimer() {
+        if (this.comboTimer) this.comboTimer.remove();
+        this.comboTimer = this.time.delayedCall(5000, () => { this.combo = 0; this.refreshUI(); });
+    }
+
+    floatText(x, y, text, color) {
+        const t = this.add.text(x, y, text, {
+            fontSize: '20px', fontFamily: 'Arial,sans-serif', fontStyle: 'bold', color
+        }).setOrigin(0.5).setDepth(60);
+        this.tweens.add({ targets: t, y: y - 45, alpha: 0, duration: 1000, ease: 'Power2', onComplete: () => t.destroy() });
+    }
+
+    onNewGame() {
+        if (this.resultBox) { this.resultBox.destroy(); this.resultBox = null; }
+        this.newGame();
+    }
+
+    update(time, delta) {
+        if (!this.gameOver) {
+            this.elapsed += delta / 1000;
+            this.uiElems.timeTxt.setText('\u65f6\u95f4: ' + this.fmtTime(this.elapsed));
+        }
+    }
+}
+
+// ============================================================
+// Phaser Config
+// ============================================================
+const config = {
+    type: Phaser.AUTO,
+    width: GW,
+    height: GH,
+    parent: 'game-container',
+    backgroundColor: '#1a6b3c',
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+    scene: [PyramidScene],
+    input: {
+        touch: { capture: true },
+        activePointers: 2
+    }
+};
+
+new Phaser.Game(config);
+</script>
+</body>
+</html>
